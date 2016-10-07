@@ -7,7 +7,7 @@ import shenzhenuni.com.globalgrow.netty.ObjectMessage;
 
 public class SelectorNioDecoder implements NioDecoder {
 
-	public Object decoder(ByteBuffer buffer) {
+	public ObjectMessage decoder(ByteBuffer buffer) {
 		if(buffer.remaining()<4){
 			return null ;
 		}

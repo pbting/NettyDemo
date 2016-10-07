@@ -3,16 +3,18 @@ package shenzhenuni.com.nio.socket;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-
 import shenzhenuni.com.SerializeUtil;
 import shenzhenuni.com.globalgrow.netty.ObjectMessage;
 import shenzhenuni.com.globalgrow.netty.Person;
+import shenzhenuni.com.nio.socket.core.Command;
 
-public class SelectorNioHandler implements NioHandler {
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 
-	public void executor(SocketChannel socketChannel, Object message) {
+public class PersonCommand implements Command {
+
+	public void execute(SocketChannel socket, ObjectMessage message)
+			throws Exception {
 		ObjectMessage objectMessage = (ObjectMessage) message;
 		try {
 			Person person = (Person) SerializeUtil.deserialize(objectMessage.getBody(), Person.class);

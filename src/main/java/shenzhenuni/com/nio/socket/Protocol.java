@@ -7,7 +7,7 @@ import java.nio.channels.Selector;
 public interface Protocol {
 
 	//accept I/O形式  
-    void handleAccept(SelectionKey key,Selector selector) throws IOException;  
+    void handleAccept(SelectionKey key) throws IOException;  
     //read I/O形式  
     void handleRead(SelectionKey key) throws IOException;  
     //write I/O形式  

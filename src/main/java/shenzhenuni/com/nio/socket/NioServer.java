@@ -10,7 +10,7 @@ public class NioServer {
 		NioEncoder encoder = new SelectNioEncoder();
 		NioDecoder decoder = new SelectorNioDecoder();
 		try {
-			Reactor reactor = new Reactor(4455, encoder, decoder,SelectorNioHandler.class);
+			Reactor reactor = new Reactor(4455, encoder, decoder,PersonCommand.class);
 			EXECUTOR_SERVICE.execute(reactor);
 		} catch (Exception e) {
 			e.printStackTrace();

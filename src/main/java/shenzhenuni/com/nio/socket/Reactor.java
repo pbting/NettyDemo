@@ -14,6 +14,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import shenzhenuni.com.nio.socket.core.Command;
+
 public class Reactor implements Runnable {
 	
 	private Selector selector ;
@@ -47,7 +49,7 @@ public class Reactor implements Runnable {
 	private NioDecoder nioDecoder = null ;
 	public final static ConcurrentHashMap<SelectionKey, NioEncoder> ENCODER_MAP = new ConcurrentHashMap<SelectionKey, NioEncoder>();
 	public final static ConcurrentHashMap<SelectionKey, NioDecoder> DECODER_MAP = new ConcurrentHashMap<SelectionKey, NioDecoder>();
-	public final static ConcurrentHashMap<SelectionKey, NioHandler> HANDLER_MAP = new ConcurrentHashMap<SelectionKey, NioHandler>();
+	public final static ConcurrentHashMap<SelectionKey, Command> HANDLER_MAP = new ConcurrentHashMap<SelectionKey, Command>();
 	private Class<?> handlerClazz = null ;
 	public Reactor(int port,NioEncoder nioEncoder,NioDecoder nioDecoder,Class<?> clazz) throws Exception{
 		selector = Selector.open();
@@ -73,9 +75,11 @@ public class Reactor implements Runnable {
 				Set<SelectionKey> keys = selector.selectedKeys();
 				Iterator<SelectionKey> iterator = keys.iterator();
 				while(iterator.hasNext()){
-					bossExecutor.submit(new Dispatch(iterator.next()));
+					SelectionKey key = iterator.next();
+					new Dispatch(key).run();
+//					bossExecutor.submit(new Dispatch(key));
+					iterator.remove();
 				}
-				keys.clear();
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -91,7 +95,8 @@ public class Reactor implements Runnable {
 				if(selectionKey.isAcceptable()){
 					
 					System.out.println("**********state:isAcceptable");
-					workerExecutor.submit(new Handler(tcpProtocol, selectionKey,selector,SelectionKey.OP_ACCEPT));//多线程只处理accept 的多做[main reactor]
+					new StateHandler(tcpProtocol, selectionKey,selector,SelectionKey.OP_ACCEPT).run();
+//					workerExecutor.submit(new StateHandler(tcpProtocol, selectionKey,selector,SelectionKey.OP_ACCEPT));//多线程只处理accept 的多做[main reactor]
 					/**
 					 * 说明：
 					 * 为什么要单独分一个Reactor来处理监听呢？
@@ -105,13 +110,14 @@ public class Reactor implements Runnable {
 					System.out.println("**********isReadable");
 					DECODER_MAP.putIfAbsent(this.selectionKey, Reactor.this.nioDecoder);
 					try {
-						HANDLER_MAP.putIfAbsent(selectionKey, (NioHandler) Reactor.this.handlerClazz.newInstance());
+						HANDLER_MAP.putIfAbsent(selectionKey, (Command) Reactor.this.handlerClazz.newInstance());
 					} catch (InstantiationException e) {
 						e.printStackTrace();
 					} catch (IllegalAccessException e) {
 						e.printStackTrace();
 					}
-					workerExecutor.submit(new Handler(tcpProtocol, selectionKey, SelectionKey.OP_READ));
+					new StateHandler(tcpProtocol, selectionKey, SelectionKey.OP_READ).run();
+//					workerExecutor.submit(new StateHandler(tcpProtocol, selectionKey, SelectionKey.OP_READ));
 					return ;
 				}
 				
@@ -119,13 +125,14 @@ public class Reactor implements Runnable {
 					System.out.println("**********isWritable");
 					ENCODER_MAP.putIfAbsent(this.selectionKey, nioEncoder);
 					try {
-						HANDLER_MAP.putIfAbsent(selectionKey, (NioHandler) Reactor.this.handlerClazz.newInstance());
+						HANDLER_MAP.putIfAbsent(selectionKey, (Command) Reactor.this.handlerClazz.newInstance());
 					} catch (InstantiationException e) {
 						e.printStackTrace();
 					} catch (IllegalAccessException e) {
 						e.printStackTrace();
 					}
-					workerExecutor.submit(new Handler(tcpProtocol, selectionKey, SelectionKey.OP_WRITE));
+					new StateHandler(tcpProtocol, selectionKey, SelectionKey.OP_WRITE).run();
+//					workerExecutor.submit(new StateHandler(tcpProtocol, selectionKey, SelectionKey.OP_WRITE));
 					return ;
 				}
 			} catch (IOException e) {

@@ -4,19 +4,19 @@ import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 
-public class Handler implements Runnable {
+public class StateHandler implements Runnable {
 	private final SelectionKey key ;
     private int state ;
     private Protocol tcpProtocol;
     private Selector selector; 
-	public Handler(Protocol tcpProtocol,SelectionKey key,Selector selector,int state) throws IOException {
+	public StateHandler(Protocol tcpProtocol,SelectionKey key,Selector selector,int state) throws IOException {
 		this.tcpProtocol = tcpProtocol;
 		this.key = key;
 		this.state = state ;
 		this.selector = selector ; 
 				
 	}
-	public Handler(Protocol tcpProtocol,SelectionKey key,int state) throws IOException {
+	public StateHandler(Protocol tcpProtocol,SelectionKey key,int state) throws IOException {
 		this.tcpProtocol = tcpProtocol;
 		this.key = key;
 		this.state = state ;
@@ -27,7 +27,7 @@ public class Handler implements Runnable {
 		case SelectionKey.OP_ACCEPT:
 		{
 			try {
-				tcpProtocol.handleAccept(key,selector);
+				tcpProtocol.handleAccept(key);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}	

@@ -2,17 +2,18 @@ package shenzhenuni.com.nio.socket;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.locks.ReentrantLock;
 
+import shenzhenuni.com.globalgrow.netty.ObjectMessage;
+import shenzhenuni.com.nio.socket.core.Command;
+
 public class SelectorProtocol implements Protocol {
 	private final static ReentrantLock lock = new ReentrantLock();
-	public void handleAccept(SelectionKey key,Selector selector) throws IOException {
+	public void handleAccept(SelectionKey key) throws IOException {
 		SocketChannel client = ((ServerSocketChannel) key.channel()).accept();
 		if(client!=null){
 			System.err.println("the channel:"+client+" has connected");
@@ -20,7 +21,7 @@ public class SelectorProtocol implements Protocol {
 				try{
 				client.configureBlocking(false);
 				// 将选择器注册到连接到的客户端信道，并指定该信道key值的属性为OP_READ，同时为该信道指定关联的事件
-				client.register(selector, SelectionKey.OP_READ);
+				client.register(key.selector(), SelectionKey.OP_READ);
 			}finally{
 				lock.unlock();
 			}
@@ -45,13 +46,17 @@ public class SelectorProtocol implements Protocol {
 			ByteBuffer tmpBuffer = ByteBuffer.allocate(data.length);
 			tmpBuffer.put(data);
 			tmpBuffer.flip();
-			Object message = decoder.decoder(tmpBuffer);//每次读取到的字节数都需要进行一次decoder,因为不知道这个消息什么时候结束
+			ObjectMessage message = decoder.decoder(tmpBuffer);//每次读取到的字节数都需要进行一次decoder,因为不知道这个消息什么时候结束
 			try{
 				//解码完成之后，调用 handler
 				if(message!=null){
-					NioHandler nioHandler = Reactor.HANDLER_MAP.get(key);
-					if(nioHandler != null){
-						nioHandler.executor(client, message);
+					Command command = Reactor.HANDLER_MAP.get(key);
+					if(command != null){
+						try {
+							command.execute(client, message);
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
 					}else{
 						System.err.println("the key "+key+" related nio handler is null:");
 					}

@@ -2,6 +2,8 @@ package shenzhenuni.com.nio.socket;
 
 import java.nio.ByteBuffer;
 
+import shenzhenuni.com.globalgrow.netty.ObjectMessage;
+
 public interface NioDecoder {
 	/**
 	 * 
@@ -9,5 +11,5 @@ public interface NioDecoder {
 	 *  should not to do something 
 	 * @return 
 	 */
-	public Object decoder(ByteBuffer buffer);
+	public ObjectMessage decoder(ByteBuffer buffer);
 }
