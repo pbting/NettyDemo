@@ -2,12 +2,13 @@ package shenzhenuni.com.nio.socket.core.quence;
 
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class BaseActionQueue implements ActionQueue {
 
 	private Queue<Action> queue;
 	private Executor executor;
-
+	private ReentrantLock lock = new ReentrantLock();
 	public BaseActionQueue(Executor executor) {
 		this.executor = executor;
 		queue = new LinkedList<Action>();
@@ -28,11 +29,13 @@ public class BaseActionQueue implements ActionQueue {
 
 	public void enqueue(Action action) {
 		int queueSize = 0;
-		synchronized (queue) {
+		lock.lock();
+		try{
 			queue.add(action);
 			queueSize = queue.size();
+		}finally{
+			lock.unlock();
 		}
-
 		if (queueSize == 1) {
 			executor.execute(action);
 		}
@@ -45,16 +48,18 @@ public class BaseActionQueue implements ActionQueue {
 		Action nextAction = null;
 		int queueSize = 0;
 		String tmpString = null;
-		synchronized (queue) {
+		lock.lock();
+		try{
 			queueSize = queue.size();
 			Action temp = queue.remove();
 			if (temp != action) {
 				tmpString = temp.toString();
-
 			}
 			if (queueSize != 0) {
 				nextAction = queue.peek();
 			}
+		}finally{
+			lock.unlock();
 		}
 
 		if (nextAction != null) {
@@ -69,8 +74,11 @@ public class BaseActionQueue implements ActionQueue {
 	}
 
 	public void clear() {
-		synchronized (queue) {
+		lock.lock();
+		try{
 			queue.clear();
+		}finally{
+			lock.unlock();
 		}
 	}
 }

@@ -1,10 +1,7 @@
 package shenzhenuni.com.nio.socket.core;
 
-import java.nio.channels.SocketChannel;
-import shenzhenuni.com.globalgrow.netty.ObjectMessage;
+public interface Command<K,M> {
 
-public interface Command {
-
-	public abstract void execute(SocketChannel socket, ObjectMessage message) throws Exception;
+	public abstract void execute(K K, M M) throws Exception;
 
 }

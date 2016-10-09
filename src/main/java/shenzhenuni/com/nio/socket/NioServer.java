@@ -3,6 +3,8 @@ package shenzhenuni.com.nio.socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import shenzhenuni.com.nio.socket.cmd.socket.PersonCommand;
+
 public class NioServer {
 
 	private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
@@ -11,7 +13,7 @@ public class NioServer {
 		NioDecoder decoder = new SelectorNioDecoder();
 		try {
 			Reactor reactor = new Reactor(4455, encoder, decoder,PersonCommand.class);
-			EXECUTOR_SERVICE.execute(reactor);
+			reactor.run();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

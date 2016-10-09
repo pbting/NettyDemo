@@ -1,62 +1,62 @@
-/**
- * All rights reserved. This material is confidential and proprietary to 7ROAD SQ team.
- */
 package shenzhenuni.com.nio.socket.core;
 
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.locks.ReentrantLock;
 
-import sun.rmi.runtime.Log;
+@SuppressWarnings("rawtypes")
+public abstract class AbstractCmdTaskQueue<K, M> implements CmdTaskQueue {
 
-/**
- * <pre>
- * CmdTaskQueue基本功能实现
- * </pre>
- */
-public class AbstractCmdTaskQueue implements CmdTaskQueue {
-
-	private Queue<CmdTask> queue;
-	private CmdExecutor executor;
-
-	public AbstractCmdTaskQueue(CmdExecutor executor) {
-		this.executor = executor;
-		queue = new LinkedList<CmdTask>();
+	protected Queue<CmdTask<K, M>> queue;
+	protected CmdExecutor executor;
+	protected ReentrantLock lock = new ReentrantLock();
+	public AbstractCmdTaskQueue(CmdExecutor cmdExecutor){
+		this.executor = cmdExecutor;
+		queue = new LinkedList<CmdTask<K, M>>();
 	}
-
+	@Override
 	public CmdTaskQueue getCmdTaskQueue() {
 		return this;
 	}
 
-	public void enqueue(CmdTask cmd) {
+	@Override
+	public void enqueue(CmdTask cmdTask) {
 		int queueSize = 0;
-		synchronized (queue) {
-			queue.add(cmd);
+		lock.lock();
+		try{
+			queue.add(cmdTask);
 			queueSize = queue.size();
+		}finally{
+			lock.unlock();
 		}
 
 		if (queueSize == 1) {
-			executor.execute(cmd);
+			executor.execute(cmdTask);
 		}
 		if (queueSize > 1000) {
-			System.err.println(cmd.toString() + " queue size : " + queueSize);
+			System.err.println(cmdTask.toString() + " queue size : " + queueSize);
 		}
 	}
 
+	@Override
 	public void dequeue(CmdTask cmdTask) {
-		CmdTask nextCmdTask = null;
+
+		CmdTask<K, M> nextCmdTask = null;
 		int queueSize = 0;
-		//boolean shouldError = false;
 		String tmpString = null;
-		synchronized (queue) {
+		lock.lock();
+		try{
 			queueSize = queue.size();
-			CmdTask temp = queue.remove();
+			CmdTask<K, M> temp = queue.remove();
 			if (temp != cmdTask) {
 				tmpString = temp.toString();
-
+				
 			}
 			if (queueSize != 0) {
 				nextCmdTask = queue.peek();
 			}
+		}finally{
+			lock.unlock();
 		}
 
 		if (nextCmdTask != null) {
@@ -70,10 +70,12 @@ public class AbstractCmdTaskQueue implements CmdTaskQueue {
 		}
 	}
 
-	public Queue<CmdTask> getQueue() {
-		return queue;
+	@Override
+	public Queue getQueue() {
+		return this.queue;
 	}
 
+	@Override
 	public void clear() {
 		synchronized (queue) {
 			queue.clear();

@@ -10,15 +10,15 @@ import java.util.Queue;
  * CmdTask命令处理队列
  * </pre>
  */
-public interface CmdTaskQueue {
+public interface CmdTaskQueue<K,M> {
 	
-	public CmdTaskQueue getCmdTaskQueue();
+	public CmdTaskQueue<K,M> getCmdTaskQueue();
 	
-	public void enqueue(CmdTask cmdTask);
+	public void enqueue(CmdTask<K,M> cmdTask);
 	
-	public void dequeue(CmdTask cmdTask);
+	public void dequeue(CmdTask<K,M> cmdTask);
 	
-	public Queue<CmdTask> getQueue();
+	public Queue<CmdTask<K,M>> getQueue();
 	
 	public void clear();
 }

@@ -9,6 +9,8 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.locks.ReentrantLock;
 
 import shenzhenuni.com.globalgrow.netty.ObjectMessage;
+import shenzhenuni.com.nio.socket.core.CmdExecutor;
+import shenzhenuni.com.nio.socket.core.CmdTask;
 import shenzhenuni.com.nio.socket.core.Command;
 
 public class SelectorProtocol implements Protocol {
@@ -50,10 +52,12 @@ public class SelectorProtocol implements Protocol {
 			try{
 				//解码完成之后，调用 handler
 				if(message!=null){
-					Command command = Reactor.HANDLER_MAP.get(key);
+					Command<SocketChannel,ObjectMessage> command = Reactor.HANDLER_MAP.get(key);
 					if(command != null){
+						CmdExecutor<SocketChannel, ObjectMessage> cmdExecutor = Executorbuilder.SocketCmdExecutorBuilder.getCmdExecutor();
+						CmdTask<SocketChannel, ObjectMessage> cmdTask = new CmdTask<SocketChannel, ObjectMessage>(command, client, message);
 						try {
-							command.execute(client, message);
+							cmdExecutor.enDefaultQueue(cmdTask);
 						} catch (Exception e) {
 							e.printStackTrace();
 						}

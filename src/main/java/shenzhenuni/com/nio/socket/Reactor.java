@@ -8,42 +8,14 @@ import java.nio.channels.ServerSocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
+import shenzhenuni.com.nio.socket.cmd.protocol.ProtocolCommand;
 import shenzhenuni.com.nio.socket.core.Command;
 
 public class Reactor implements Runnable {
 	
 	private Selector selector ;
 	private ServerSocketChannel serverSocket ;
-	private ThreadPoolExecutor bossExecutor = new ThreadPoolExecutor(4, 12, 1, TimeUnit.MINUTES, new LinkedBlockingQueue<Runnable>());
-	private ThreadPoolExecutor workerExecutor = new ThreadPoolExecutor(6, 12, 1, TimeUnit.MINUTES, new LinkedBlockingQueue<Runnable>(),new DefaultThreads("reactor-nio-"));
-	static class DefaultThreads implements ThreadFactory {
-
-		static final AtomicInteger poolNumber = new AtomicInteger(1);
-		final ThreadGroup group;
-		final AtomicInteger threadNumber = new AtomicInteger(1);
-		final String namePrefix;
-
-		public Thread newThread(Runnable runnable) {
-			Thread thread = new Thread(group, runnable, (new StringBuilder()).append(namePrefix).append(threadNumber.getAndIncrement()).toString(), 0L);
-			if (thread.isDaemon())
-				thread.setDaemon(false);
-			if (thread.getPriority() != 5)
-				thread.setPriority(5);
-			return thread;
-		}
-
-		DefaultThreads(String prefix) {
-			SecurityManager securitymanager = System.getSecurityManager();
-			group = securitymanager == null ? Thread.currentThread().getThreadGroup() : securitymanager.getThreadGroup();
-			namePrefix = (new StringBuilder()).append("pool-").append(poolNumber.getAndIncrement()).append("-").append(prefix).append("-thread-").toString();
-		}
-	}
 	private Protocol tcpProtocol = null;
 	private NioEncoder nioEncoder = null ;
 	private NioDecoder nioDecoder = null ;
@@ -76,8 +48,7 @@ public class Reactor implements Runnable {
 				Iterator<SelectionKey> iterator = keys.iterator();
 				while(iterator.hasNext()){
 					SelectionKey key = iterator.next();
-					new Dispatch(key).run();
-//					bossExecutor.submit(new Dispatch(key));
+					this.execute(key);
 					iterator.remove();
 				}
 			}
@@ -85,59 +56,56 @@ public class Reactor implements Runnable {
 			e.printStackTrace();
 		}
 	}
-	public class Dispatch implements Runnable{
-		private SelectionKey selectionKey;
-		public Dispatch(SelectionKey selectionKey){
-			this.selectionKey = selectionKey ;
+	private long execute(SelectionKey selectionKey) {
+		long start = System.currentTimeMillis();
+		if(selectionKey.isAcceptable()){
+			
+			System.out.println("**********state:isAcceptable");
+			this.doHandler(tcpProtocol, selectionKey);
+			/**
+			 * 说明：
+			 * 为什么要单独分一个Reactor来处理监听呢？
+			 * 因为像TCP这样需要经过3次握手才能建立连接，这个建立连接的过程也是要耗时间和资源的，单独分一个Reactor来处理，可以提高性能。
+			 */
+			return System.currentTimeMillis()-start;
 		}
-		public void run() {
+		
+		if(selectionKey.isReadable()){
+			//
+			System.out.println("**********isReadable");
+			DECODER_MAP.putIfAbsent(selectionKey, Reactor.this.nioDecoder);
 			try {
-				if(selectionKey.isAcceptable()){
-					
-					System.out.println("**********state:isAcceptable");
-					new StateHandler(tcpProtocol, selectionKey,selector,SelectionKey.OP_ACCEPT).run();
-//					workerExecutor.submit(new StateHandler(tcpProtocol, selectionKey,selector,SelectionKey.OP_ACCEPT));//多线程只处理accept 的多做[main reactor]
-					/**
-					 * 说明：
-					 * 为什么要单独分一个Reactor来处理监听呢？
-					 * 因为像TCP这样需要经过3次握手才能建立连接，这个建立连接的过程也是要耗时间和资源的，单独分一个Reactor来处理，可以提高性能。
-					 */
-					return ;
-				}
-				
-				if(selectionKey.isReadable()){
-					//
-					System.out.println("**********isReadable");
-					DECODER_MAP.putIfAbsent(this.selectionKey, Reactor.this.nioDecoder);
-					try {
-						HANDLER_MAP.putIfAbsent(selectionKey, (Command) Reactor.this.handlerClazz.newInstance());
-					} catch (InstantiationException e) {
-						e.printStackTrace();
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					}
-					new StateHandler(tcpProtocol, selectionKey, SelectionKey.OP_READ).run();
-//					workerExecutor.submit(new StateHandler(tcpProtocol, selectionKey, SelectionKey.OP_READ));
-					return ;
-				}
-				
-				if(selectionKey.isWritable()){
-					System.out.println("**********isWritable");
-					ENCODER_MAP.putIfAbsent(this.selectionKey, nioEncoder);
-					try {
-						HANDLER_MAP.putIfAbsent(selectionKey, (Command) Reactor.this.handlerClazz.newInstance());
-					} catch (InstantiationException e) {
-						e.printStackTrace();
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					}
-					new StateHandler(tcpProtocol, selectionKey, SelectionKey.OP_WRITE).run();
-//					workerExecutor.submit(new StateHandler(tcpProtocol, selectionKey, SelectionKey.OP_WRITE));
-					return ;
-				}
-			} catch (IOException e) {
+				HANDLER_MAP.putIfAbsent(selectionKey, (Command) Reactor.this.handlerClazz.newInstance());
+			} catch (InstantiationException e) {
+				e.printStackTrace();
+			} catch (IllegalAccessException e) {
 				e.printStackTrace();
 			}
+			this.doHandler(tcpProtocol, selectionKey);
+			return System.currentTimeMillis()-start;
+		}
+		
+		if(selectionKey.isWritable()){
+			System.out.println("**********isWritable");
+			ENCODER_MAP.putIfAbsent(selectionKey, nioEncoder);
+			try {
+				HANDLER_MAP.putIfAbsent(selectionKey, (Command) Reactor.this.handlerClazz.newInstance());
+			} catch (InstantiationException e) {
+				e.printStackTrace();
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			}
+			this.doHandler(tcpProtocol, selectionKey);
+			return System.currentTimeMillis()-start;
+		}
+		return System.currentTimeMillis()-start;
+	}
+	
+	private void doHandler(Protocol protocol,SelectionKey key) {
+		try {
+			new ProtocolCommand().execute(tcpProtocol, key);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 }

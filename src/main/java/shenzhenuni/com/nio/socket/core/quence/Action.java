@@ -1,7 +1,5 @@
 package shenzhenuni.com.nio.socket.core.quence;
 
-import sun.rmi.runtime.Log;
-
 public abstract class Action implements Runnable {
 
 	protected ActionQueue queue;
